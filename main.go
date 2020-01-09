@@ -1,17 +1,23 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
 	"sync"
 	"time"
 )
 
 type WordScore struct {
 	Word  string
-	Score float64
+	Score float64 `json:"-"`
 }
 
-var scores []WordScore
+var scores []string
 
 const maxLength int = 14
 
@@ -43,6 +49,10 @@ func main() {
 
 	initializePhyKeys()
 
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	log.Printf("Words: %d", len(words))
 
 	for i := len(words) - 1; i >= 0; i-- {
@@ -61,6 +71,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		for _, word := range words[:int(len(words)/4)] {
+			fmt.Printf("1: %s\n", word)
 			dothething(word, scoreChan)
 		}
 	}()
@@ -69,6 +80,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		for _, word := range words[int(len(words)/4):int(len(words)/2)] {
+			fmt.Printf("2: %s\n", word)
 			dothething(word, scoreChan)
 		}
 	}()
@@ -77,6 +89,7 @@ func main() {
 	go func() {
 		defer wg.Done()
 		for _, word := range words[int(len(words)/2) : int(len(words)/4)*3] {
+			fmt.Printf("3: %s\n", word)
 			dothething(word, scoreChan)
 		}
 	}()
@@ -85,7 +98,9 @@ func main() {
 	go func() {
 		defer wg.Done()
 		for _, word := range words[int(len(words)/4)*3:] {
+			fmt.Printf("4: %s\n", word)
 			dothething(word, scoreChan)
+
 		}
 
 	}()
@@ -99,32 +114,48 @@ func main() {
 			case <-t.C:
 				log.Printf("Found %d high scores so far", highScoresFound)
 			case newScore := <-scoreChan:
-				scores = append(scores, newScore)
 
 				// if highScoresFound%1000000 == 0 {
 				// 	log.Printf("Found '%s' score: %.1f", newScore.Word, newScore.Score)
 				// }
 
 				if newScore.Score > 13 {
+					scores = append(scores, newScore.Word)
 					highScoresFound++
 				}
+
+				if highScoresFound > 30000000 {
+
+					jsonBytes, err := json.MarshalIndent(scores, "", "\t")
+					if err != nil {
+						log.Print(err)
+					} else {
+						err := ioutil.WriteFile("scores.json", jsonBytes, 0644)
+						if err != nil {
+							log.Print(err)
+						}
+					}
+
+					os.Exit(0)
+				}
+
 			}
 		}
 	}()
 
 	wg.Wait()
 
-	var highScores []WordScore
-	for _, score := range scores {
-		//log.Printf("Score: '%s': %f", score.Word, score.Score)
-		if score.Score == 14 && len(score.Word) == 14 {
-			highScores = append(highScores, score)
-		}
-	}
+	// var highScores []WordScore
+	// for _, score := range scores {
+	// 	//log.Printf("Score: '%s': %f", score.Word, score.Score)
+	// 	if score.Score == 14 && len(score.Word) == 14 {
+	// 		highScores = append(highScores, score)
+	// 	}
+	// }
 
-	for _, hs := range highScores {
-		log.Printf("Found '%s' score %.0f", hs.Word, hs.Score)
-	}
+	// for _, hs := range highScores {
+	// 	log.Printf("Found '%s' score %.0f", hs.Word, hs.Score)
+	// }
 	log.Print("Finished")
 }
 
