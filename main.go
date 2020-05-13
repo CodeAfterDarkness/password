@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
-	_ "net/http/pprof"
+
+	//_ "net/http/pprof"
 	"os"
 	"sync"
 	"time"
@@ -45,13 +45,16 @@ func dothething(wordIn string, scoreChan chan WordScore) {
 }
 
 func main() {
+
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	log.Print("Starting")
 
 	initializePhyKeys()
 
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
 
 	log.Printf("Words: %d", len(words))
 
@@ -124,7 +127,7 @@ func main() {
 					highScoresFound++
 				}
 
-				if highScoresFound > 30000000 {
+				if highScoresFound > 500000 {
 
 					jsonBytes, err := json.MarshalIndent(scores, "", "\t")
 					if err != nil {
